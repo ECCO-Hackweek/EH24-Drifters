@@ -11,7 +11,7 @@ end
 
 # Ocean Circulation setup
 
-P,D=OCCA_FlowFields.setup(bacward_in_time=true, nmax=5) #parameters, diagnostics
+P,D=OCCA_FlowFields.setup(backward_in_time=true, nmax=5) #parameters, diagnostics
 G=D.Γ #grid parameters
 rec=OCCA_FlowFields.custom🔴 #recorder
 proc=OCCA_FlowFields.custom🔧 #processor
