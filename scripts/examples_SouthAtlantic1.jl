@@ -1,9 +1,9 @@
 #Let's start a temporary environment for this notebook, and add julia packages that we will use
 if !isdefined(Main,:IndividualDisplacements)
     using Pkg; Pkg.activate(temp=true)
-    Pkg.add.(["IndividualDisplacements", "CairoMakie", "Climatology", "NetCDF", "MeshArrays", "GeoJSON", "DataDeps"])
+    Pkg.add.(["IndividualDisplacements", "GLMakie", "Climatology", "NetCDF", "MeshArrays", "GeoJSON", "DataDeps"])
  
-    using IndividualDisplacements, CairoMakie, Climatology, NetCDF, MeshArrays, GeoJSON, DataDeps
+    using IndividualDisplacements, GLMakie, Climatology, NetCDF, MeshArrays, GeoJSON, DataDeps
 	p0=joinpath(dirname(pathof(IndividualDisplacements)),"..","examples")
 	f0=joinpath(p0,"worldwide","OCCA_FlowFields.jl")
 	include(f0);
@@ -42,16 +42,16 @@ lon180(x)=Float64(x>180.0 ? x-360.0 : x)  # define a function to convert 0-360 t
 lon_p = (-70,40) # set longitude range you wanna plot, note indices are in the range of -180-180
 lat_p = (-30,30) # set latitude range you wanna plot
 
-# visulation 1
+# visualisation 1
+
+fil=demo.download_polygons("countries.geojson") # using MeshArrays to get countries' map
+pol=MeshArrays.read_polygons(fil)
 
 """
     myplot1(I::Individuals)
 
 Plot the initial and final positions as scatter plot in `lon,lat` or `x,y` plane.
 """
-
-fil=demo.download_polygons("countries.geojson") # using MeshArrays to get countries' map
-pol=MeshArrays.read_polygons(fil);
 function myplot1(I::Individuals)
 	🔴_by_t = IndividualDisplacements.DataFrames.groupby(I.🔴, :t)
 	set_theme!(theme_black())
@@ -66,19 +66,20 @@ function myplot1(I::Individuals)
     axislegend(a)
     return fig
 end
-#myplot1(I)
-fig = myplot1(I)
-save("/Users/yysong/Desktop/study/ECCO-202410/figures/mask_test1.png",fig)
 
-# visulation 2
+fig = myplot1(I)
+file = joinpath(tempdir(),"mask_test1.png")
+save(file,fig)
+
+# visualisation 2
+
+lndid = findall(Γ.hFacC[1,1].==0); # find indices of all positions of land
 
 """
     myplot2(I::Individuals)
 
 Plot the initial and final positions as scatter plot in `lon,lat` or `x,y` plane.
 """
-
-lndid = findall(Γ.hFacC[1,1].==0); # find indices of all positions of land
 function myplot2(I::Individuals)
 	🔴_by_t = IndividualDisplacements.DataFrames.groupby(I.🔴, :t)
 	set_theme!(theme_black())
@@ -96,16 +97,18 @@ function myplot2(I::Individuals)
     axislegend(a)
     return fig
 end
-myplot2(I)
 
+fig2=myplot2(I)
 
 # plot region we focus on using heatmap
-msks1=Γ.hFacC[:,1]*(Γ.XC.>0.0)*(Γ.XC.<40.0)*(Γ.YC.>-30.0)*(Γ.YC.<30.0)
-msks2=Γ.hFacC[:,1]*(Γ.XC.>-70.0+360)*(Γ.XC.<0.0+360)*(Γ.YC.>-30.0)*(Γ.YC.<30.0)
-msks = msks1+msks2
-cmap = [:white, :transparent]
-#println(lndid)
-fig=Figure(size = (600, 400))
+function plot_masks(Γ)
+    msks1=Γ.hFacC[:,1]*(Γ.XC.>0.0)*(Γ.XC.<40.0)*(Γ.YC.>-30.0)*(Γ.YC.<30.0)
+    msks2=Γ.hFacC[:,1]*(Γ.XC.>-70.0+360)*(Γ.XC.<0.0+360)*(Γ.YC.>-30.0)*(Γ.YC.<30.0)
+    msks = msks1+msks2
+    cmap = [:white, :transparent]
+    #println(lndid)
+
+    fig=Figure(size = (600, 400))
     a = Axis(fig[1, 1],xlabel="longitude",ylabel="latitude")
 
     XC=circshift(Γ.XC[1,1],(-180,0)); XC[XC.>180].-=360
@@ -115,21 +118,20 @@ fig=Figure(size = (600, 400))
 
     xlims!(a,lon_p)
     ylims!(a,lat_p)
-fig
 
+    fig
+end
 
-#add movie plotting package
-using Pkg
-Pkg.add.(["GLMakie"])
-using GLMakie
+fig_masks=plot_masks(Γ)
 
-# visulation 3
+# visualisation 3
 
 """
+    myplot3(I::Individuals)
+
 Plot all positions over time as scatter plot in `lon,lat` or `x,y` plane incrementally in movie.
 """
-
-
+function myplot3(I::Individuals)
 🔴_by_t = IndividualDisplacements.DataFrames.groupby(I.🔴, :t)
 
 set_theme!(theme_black())
@@ -138,25 +140,32 @@ time=Observable(10)
 
 lon = @lift(vcat([lon180.(🔴_by_t[$time-t+1].lon) for t in 1:3]...))#changing to convert lon range in a way that works with observable
 lat = @lift(vcat([🔴_by_t[$time-t+1].lat for t in 1:3]...)) #can change 3 for more particles
-  z = @lift(vcat([🔴_by_t[$time-t+1].z for t in 1:3]...))
+z = @lift(vcat([🔴_by_t[$time-t+1].z for t in 1:3]...))
 
-    f=Figure(size = (600, 400))
-    a = Axis(f[1, 1],xlabel="longitude",ylabel="latitude")	
-    
-    scatter!(a,lon,lat,color=:green2,markersize=2) # use lon180 to convert longitude range
-    sca = scatter!(a,lon,lat,color=z,markersize=2, colormap = :plasma)
-    Colorbar(fig[1, 2], sca; label = "Depth (m)")
-    scatter!(a,lon180.(🔴_by_t[1].lon),🔴_by_t[1].lat,color=:green2,markersize=4,label="initial positions") #scatter initial position
-    scatter!(a,lon180.(Γ.XC[1,1][lndid]),Γ.YC[1,1][lndid],color=:white,markersize=10) # scatter the land background
+f=Figure(size = (600, 400))
+a = Axis(f[1, 1],xlabel="longitude",ylabel="latitude")	
 
-    xlims!(a,lon_p)
-    ylims!(a,lat_p)
-    axislegend(a)
+scatter!(a,lon,lat,color=:green2,markersize=2) # use lon180 to convert longitude range
+sca = scatter!(a,lon,lat,color=z,markersize=2, colormap = :plasma)
+Colorbar(fig[1, 2], sca; label = "Depth (m)")
+scatter!(a,lon180.(🔴_by_t[1].lon),🔴_by_t[1].lat,color=:green2,markersize=4,label="initial positions") #scatter initial position
+scatter!(a,lon180.(Γ.XC[1,1][lndid]),Γ.YC[1,1][lndid],color=:white,markersize=10) # scatter the land background
+
+xlims!(a,lon_p)
+ylims!(a,lat_p)
+axislegend(a)
 
 framerate = 20
 timestamps = 3:51 #change for number of timesteps
 
-record(f, "/Users/cpimm/Desktop/time_animation2.mp4", timestamps;
+file= joinpath(tempdir(),"time_animation2.mp4")
+record(f, file, timestamps;
         framerate = framerate) do t
     time[] = t
 end
+
+file
+end
+
+file3=myplot3(I::Individuals)
+

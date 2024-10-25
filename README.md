@@ -19,6 +19,13 @@ List all participants on the project. Here is a good space to share your persona
 
 Simulate pathways of seawater that cross 6S in the Atlantic.
 
+### Solutions
+
+These were created by our team during ECCO-Hackweek 2024 :
+
+- `scripts/examples_SouthAtlantic1.jl`
+- `scripts/initial_simulations.jl`
+
 ### Data
 
 - OCCA, ECCO flow fields
@@ -26,4 +33,5 @@ Simulate pathways of seawater that cross 6S in the Atlantic.
 ### Existing methods
 
 - IndividualDisplacements.jl
+
 
